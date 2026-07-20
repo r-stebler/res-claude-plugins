@@ -1,0 +1,10 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "res",
+  "owner": {
+    "name": "res"
+  },
+  "plugins": [
+    { "name": "res-dev", "source": "./res-dev" }
+  ]
+}
