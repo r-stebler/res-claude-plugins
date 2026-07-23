@@ -1,7 +1,7 @@
 ---
 name: git-pr-review
-description: Führt einen gründlichen, ehrlichen und kritischen Code-Review eines GitHub Pull Requests durch. Nutze diesen Skill immer wenn der User einen PR reviewen, prüfen, analysieren oder begutachten möchte – egal ob mit PR-Link, PR-Nummer oder Beschreibung wie "schau dir PR #42 an", "review meinen PR", "was hältst du von diesem PR" oder "kannst du den PR checken". Auch bei Fragen wie "ist der PR merge-ready?" oder "gibt es Probleme mit dem PR?" direkt anwenden.
-compatibility: "Primär `gh` CLI (immer verfügbar wenn GitHub-Repo). GitHub MCP wird genutzt falls vorhanden."
+description: Führt einen gründlichen, ehrlichen und kritischen Code-Review eines Pull Requests durch – GitHub oder Azure DevOps. Nutze diesen Skill immer wenn der User einen PR reviewen, prüfen, analysieren oder begutachten möchte – egal ob mit PR-Link, PR-Nummer oder Beschreibung wie "schau dir PR #42 an", "review meinen PR", "was hältst du von diesem PR" oder "kannst du den PR checken". Auch bei Fragen wie "ist der PR merge-ready?" oder "gibt es Probleme mit dem PR?" direkt anwenden.
+compatibility: "GitHub: `gh` CLI (bzw. GitHub MCP). Azure DevOps: `az repos` + git-diff. Plattform wird aus PR-Link/Remote erkannt."
 ---
 
 # PR Review Skill
@@ -12,15 +12,29 @@ Führe einen **ehrlichen, kritischen und konstruktiven** Code-Review durch. Kein
 
 ## Schritt 1: PR-Daten laden
 
-**Input:** PR-Link (`https://github.com/owner/repo/pull/123`) oder PR-Nummer + Repo-Kontext.
+**Input:** PR-Link oder PR-Nummer + Repo-Kontext.
 
-**Primärpfad: `gh` CLI** (in jedem GitHub-Repo verfügbar):
+**Plattform erkennen** – aus dem PR-Link oder `git remote -v`:
+- `github.com` → **GitHub-Pfad**
+- `dev.azure.com` / `*.visualstudio.com` → **Azure-DevOps-Pfad**
+
+### GitHub-Pfad (`gh` CLI, in jedem GitHub-Repo verfügbar)
 1. **PR-Metadaten** – `gh pr view <n> --json title,body,author,baseRefName,headRefName,labels,state,mergeable`
 2. **Diff** – `gh pr diff <n>`
-3. **Bestehende Review-Kommentare** – `gh pr view <n> --comments` und `gh api repos/<owner>/<repo>/pulls/<n>/comments` (Inline-Kommentare). Doppelungen vermeiden, aber wichtige Befunde gegebenenfalls verstärken.
+3. **Bestehende Review-Kommentare** – `gh pr view <n> --comments` und `gh api repos/<owner>/<repo>/pulls/<n>/comments` (Inline-Kommentare). Doppelungen vermeiden, wichtige Befunde ggf. verstärken.
+
+Alternative: GitHub MCP falls vorhanden.
+
+### Azure-DevOps-Pfad (`az repos` + git-diff)
+Org/Project/Repo aus dem PR-Link oder `git remote -v` auflösen (SSH `git@ssh.dev.azure.com:v3/<org>/<project>/<repo>`; Projekt **URL-decoden**, z. B. `Web%20Platform` → `Web Platform`). Nutzt die bestehende `az`-Session; bei Auth-Fehler den User bitten, `az devops login` (PAT, Scope Code: Read) auszuführen.
+1. **PR-Metadaten** – `az repos pr show --id <n> --org https://dev.azure.com/<org> -o json` → `title`, `description`, `sourceRefName`, `targetRefName`, `status`, `reviewers`, `workItemRefs`.
+2. **Diff** – Branch-Namen aus den Refs ableiten (ohne `refs/heads/`), dann `git fetch origin` und `git diff origin/<target>...origin/<source>` (Drei-Punkt: die im Source neu hinzugekommenen Änderungen). Bei großem Diff zuerst `--stat` für den Überblick.
+3. **Bestehende Kommentare/Threads** *(optional)* – `az devops invoke --area git --resource pullRequestThreads --route-parameters project="<project>" repositoryId=<repo> pullRequestId=<n> --org https://dev.azure.com/<org>` (REST); sonst kurzer Web-UI-Verweis.
+
+### Gemeinsam
 4. **CLAUDE.md** – falls noch nicht im Kontext: Root und ggf. nested `**/CLAUDE.md` lesen. Als harte Anforderung behandeln.
 
-**Alternativen:** GitHub MCP nutzen wenn vorhanden. Fallback nur wenn beides scheitert: User um Diff-Paste bitten.
+**Fallback** (beide Pfade scheitern): User um Diff-Paste bitten.
 
 ---
 
@@ -33,7 +47,7 @@ Bevor du reviewst, verschaffe dir ein klares Bild:
 - **Gibt es eine CLAUDE.md?** → Inhalt lesen und als harte Anforderung behandeln
 
 **Optional: lokale Verifikation** — bei größeren PRs oder wenn Tests/Lint-Status unklar:
-`gh pr checkout <n>` und z. B. `make test` / `make lint` lokal laufen lassen. Nur einsetzen wenn der zusätzliche Aufwand den Reviewwert rechtfertigt — bei trivialen PRs überspringen.
+Source-Branch lokal auschecken (GitHub: `gh pr checkout <n>`; Azure DevOps: `git fetch origin && git checkout <source-branch>`) und z. B. `mvn test` / `make test` / `make lint` laufen lassen. Nur wenn der Aufwand den Reviewwert rechtfertigt — bei trivialen PRs überspringen.
 
 ---
 
