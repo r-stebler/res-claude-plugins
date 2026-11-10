@@ -1,6 +1,6 @@
 ---
 name: git-branch
-description: Create a new feature branch from main. Arguments are ticket number and short description.
+description: Create a new feature branch from the default branch. Arguments are ticket key and short description.
 disable-model-invocation: true
 argument-hint: TICKET-123 short description
 ---
@@ -8,26 +8,28 @@ argument-hint: TICKET-123 short description
 Create a new feature branch.
 
 ## Input
-Arguments: $ARGUMENTS
 
-Parse the arguments: the first token is the ticket number (e.g. `TICKET-123`), the rest is a short description.
+Arguments: $ARGUMENTS — first token is the ticket key (e.g. `ABC-123`), the rest is a short
+description. If either is missing, ask.
 
 ## Steps
 
-1. Parse arguments into ticket number and description
-   - If arguments are missing or incomplete, ask the user for ticket number and description
-2. Generate the branch name in the format: `feature/<ticket-lower>-<slugified-description>`
-   - Example: `TICKET-123 Add user login` → `feature/ticket-123-add-user-login`
-   - Lowercase, hyphens instead of spaces, no special characters
-3. Check the current branch with `git branch --show-current`
-4. **If the current branch is NOT `main`:**
-   - Warn the user that a branch-off-branch will be created
-   - Show current branch name
-   - Ask for explicit confirmation before proceeding
-   - If denied, suggest switching to main first: `git checkout main && git pull`
-5. **If the current branch IS `main`:**
-   - Pull latest changes: `git pull`
-6. Check for uncommitted changes (`git status`). If there are changes, ask the user if they want to stash them, commit them, or abort
-7. Create and switch to the new branch: `git checkout -b <branch-name>`
-8. Push the branch to set upstream: `git push -u origin <branch-name>`
-9. Confirm the branch was created and is tracking remote
+1. Branch name: `feature/<TICKET-KEY>-<slugified-description>`
+   - Ticket key keeps its original casing: `ABC-123 Add user login` → `feature/ABC-123-add-user-login`
+   - Description lowercased, hyphens instead of spaces, no special characters
+2. Resolve the default branch `<base>`: `git symbolic-ref --short refs/remotes/origin/HEAD`
+   (strip `origin/`); if unset, `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`.
+3. Check the current branch with `git branch --show-current`.
+4. **Not on `<base>`:** warn that this creates a branch off a branch, show the current branch, ask for
+   explicit confirmation. If denied, suggest `git checkout <base> && git pull` first.
+5. **On `<base>`:** `git pull`
+6. Check `git status` for uncommitted changes. If there are any, ask: stash, commit, or abort.
+7. `git checkout -b <branch-name>`
+8. `git push -u origin <branch-name>`
+9. Confirm the branch exists and tracks remote.
+
+## Sandbox
+
+Steps 7 and 8 need the sandbox disabled:
+- `git checkout` fails to stat `.env*` files and can leave the worktree swapped while HEAD stays put.
+- `git push` cannot reach the osxkeychain credential helper.
