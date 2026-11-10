@@ -57,8 +57,8 @@ As a [role], I want [goal], so [benefit].
 - [Add a line only if it adds information]
 
 ## Acceptance Criteria
-- [ ] [Testable, one line]
-- [ ] [...]
+- [Testable, one line]
+- [...]
 
 ## Notes
 - [Optional: constraint, link, edge case. Omit the section if none.]
@@ -78,8 +78,8 @@ For **Tasks**, use a simpler format:
 [One line: what and why]
 
 ## Tasks
-- [ ] [Subtask]
-- [ ] [...]
+- [Subtask]
+- [...]
 
 ## Done When
 - [Definition of done — one line]
@@ -98,6 +98,7 @@ Once approved, create the issue using `mcp__atlassian__createJiraIssue` with:
 - `issueTypeName`: the determined type (Story, Bug, Task, Epic)
 - `summary`: the generated title
 - `description`: the full structured description in Markdown
+- `contentFormat`: `"markdown"` — without it Jira renders the Markdown as literal text. Plain bullets only: Jira escapes task-list checkboxes (`- [ ]`) to literal brackets
 
 After creation, confirm with the ticket key and link:
 `<siteUrl>/browse/<projectKey>-X`

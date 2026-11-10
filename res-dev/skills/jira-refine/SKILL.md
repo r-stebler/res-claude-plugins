@@ -61,8 +61,8 @@ As a [role], I want [goal], so [benefit].
 - [Add a line only if it adds information]
 
 ## Acceptance Criteria
-- [ ] [Testable, one line]
-- [ ] [...]
+- [Testable, one line]
+- [...]
 
 ## Notes
 - [Optional: constraint, link, edge case. Omit the section if none.]
@@ -76,8 +76,8 @@ As a [role], I want [goal], so [benefit].
 - **Steps:** [1 → 2 → 3]
 
 ## Acceptance Criteria
-- [ ] [Testable, one line]
-- [ ] [...]
+- [Testable, one line]
+- [...]
 ```
 
 **Tasks** should have:
@@ -86,8 +86,8 @@ As a [role], I want [goal], so [benefit].
 [One line: what and why]
 
 ## Tasks
-- [ ] [Subtask]
-- [ ] [...]
+- [Subtask]
+- [...]
 
 ## Done When
 - [Definition of done — one line]
@@ -111,6 +111,7 @@ Once approved, update the issue using `mcp__atlassian__editJiraIssue` with:
 - `issueKey`: the full ticket key
 - `summary`: the refined title (if changed)
 - `description`: the full refined description in Markdown
+- `contentFormat`: `"markdown"` — without it Jira renders the Markdown as literal text. Plain bullets only: Jira escapes task-list checkboxes (`- [ ]`) to literal brackets
 
 After updating, confirm with the ticket key and link:
 `<siteUrl>/browse/<projectKey>-X`
