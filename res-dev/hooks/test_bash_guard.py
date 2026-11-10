@@ -63,6 +63,14 @@ class CommitOnDefaultBranch(unittest.TestCase):
         repo = make_repo("master")
         self.assertEqual(run_guard(f'cd {repo}; git commit -m "x"', cwd=make_repo("feature/x")).returncode, 2)
 
+    def test_follows_cd_across_lines(self):
+        repo = make_repo("master")
+        self.assertEqual(run_guard(f'cd {repo}\ngit commit -m "x"', cwd=make_repo("feature/x")).returncode, 2)
+
+    def test_newline_inside_quotes_is_not_a_separator(self):
+        cmd = 'git commit -m "feat: x\n\ngit add -A is mentioned here"'
+        self.assertEqual(run_guard(cmd, cwd=make_repo("feature/x")).returncode, 0)
+
     def test_expands_env_vars_in_cd(self):
         # Regression: `cd $TMPDIR/repo && git commit` on master slipped through (live test, 0.4.0).
         repo = Path(make_repo("master"))
@@ -104,6 +112,9 @@ class AddAll(unittest.TestCase):
             with self.subTest(cmd=cmd):
                 self.assertEqual(run_guard(cmd, cwd=make_repo("feature/x")).returncode, 2)
 
+    def test_blocks_add_all_on_a_later_line(self):
+        self.assertEqual(run_guard("git status\ngit add -A", cwd=make_repo("feature/x")).returncode, 2)
+
     def test_allows_explicit_paths(self):
         for cmd in ["git add src/a.ts docs/b.md", "git add -p src/a.ts", "git add ./src/a.ts"]:
             with self.subTest(cmd=cmd):
@@ -134,6 +145,14 @@ class Attribution(unittest.TestCase):
 
     def test_allows_clean_heredoc_message(self):
         cmd = "git commit -m \"$(cat <<'EOF'\nfeat: x\n\nbody\nEOF\n)\""
+        self.assertEqual(run_guard(cmd, cwd=make_repo("feature/x")).returncode, 0)
+
+    def test_blocks_trailer_in_unquoted_heredoc(self):
+        cmd = "git commit -F - <<'EOF'\nfeat: x\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF"
+        self.assertEqual(run_guard(cmd, cwd=make_repo("feature/x")).returncode, 2)
+
+    def test_heredoc_body_is_not_run_as_commands(self):
+        cmd = "git commit -F - <<EOF\nfeat: x\n\ngit add -A in prose\nEOF\ngit log -1"
         self.assertEqual(run_guard(cmd, cwd=make_repo("feature/x")).returncode, 0)
 
     def test_allows_human_coauthor(self):

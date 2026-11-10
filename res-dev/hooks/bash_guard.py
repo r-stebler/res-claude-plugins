@@ -33,19 +33,47 @@ def block(reason: str) -> None:
     sys.exit(2)
 
 
+def heredoc_tag(tokens: list[str]) -> str | None:
+    """Terminator of a heredoc opened in this command (`<<EOF`, `<<'EOF'`, `<<-EOF`, `<< EOF`)."""
+    for i, tok in enumerate(tokens):
+        if tok.startswith("<<") and not tok.startswith("<<<"):
+            tag = tok[2:].lstrip("-") or (tokens[i + 1] if i + 1 < len(tokens) else "")
+            return tag or None
+    return None
+
+
 def segments(command: str) -> list[list[str]]:
-    """Split a shell command into simple commands, quotes respected."""
-    lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
+    """Split a shell command into simple commands, quotes respected.
+
+    A newline outside quotes separates commands like `;` does. The body lines of a heredoc stay
+    with the command that opened it, so a message fed via `<<EOF` is checked as part of that
+    command and its lines are never mistaken for commands.
+    """
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|\n")
+    lexer.whitespace = " \t\r"
     lexer.whitespace_split = True
     result, current = [], []
     for tok in lexer:
-        if tok in SEPARATORS:
+        if tok in SEPARATORS or set(tok) <= set(";&|\n"):
             result.append(current)
             current = []
         else:
             current.append(tok)
     result.append(current)
-    return [s for s in result if s]
+
+    merged: list[list[str]] = []
+    tag: str | None = None
+    for seg in result:
+        if tag is not None:
+            if seg == [tag]:
+                tag = None
+            else:
+                merged[-1].extend(seg)
+            continue
+        if seg:
+            merged.append(seg)
+            tag = heredoc_tag(seg)
+    return merged
 
 
 def strip_env(tokens: list[str]) -> list[str]:
