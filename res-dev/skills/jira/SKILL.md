@@ -23,6 +23,10 @@ These values are project-specific — never hardcode them. Resolve them before a
 
 Use the resolved `<projectKey>` / `<cloudId>` / `<siteUrl>` in place of the placeholders below.
 
+**Atlassian connector:** tools are named `mcp__atlassian__*` below; if that server is down or times
+out, use the same operation on the other Atlassian server (e.g. `mcp__claude_ai_Atlassian_MCP__*`).
+After a write timeout, read the issue before retrying — the write may have landed.
+
 ## Usage Patterns
 
 ### No arguments → Show my open tickets
