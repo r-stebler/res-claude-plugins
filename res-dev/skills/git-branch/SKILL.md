@@ -1,7 +1,6 @@
 ---
 name: git-branch
-description: Create a new feature branch from the default branch. Arguments are ticket key and short description.
-disable-model-invocation: true
+description: Create a new feature branch from the default branch. Arguments are ticket key and short description. Use when starting implementation work that belongs on its own branch (every risk tier starts with a branch).
 argument-hint: TICKET-123 short description
 ---
 
