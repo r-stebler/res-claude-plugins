@@ -1,5 +1,6 @@
 """Tests for bash_guard.py — run with: python3 -m unittest discover res-dev/hooks"""
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -9,7 +10,9 @@ from pathlib import Path
 GUARD = Path(__file__).with_name("bash_guard.py")
 
 
-def run_guard(command: str, cwd: str = "/tmp", tool: str = "Bash") -> subprocess.CompletedProcess:
+def run_guard(
+    command: str, cwd: str = "/tmp", tool: str = "Bash", env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess:
     payload = {
         "hook_event_name": "PreToolUse",
         "tool_name": tool,
@@ -21,6 +24,7 @@ def run_guard(command: str, cwd: str = "/tmp", tool: str = "Bash") -> subprocess
         input=json.dumps(payload),
         capture_output=True,
         text=True,
+        env={**os.environ, **(env or {})},
     )
 
 
@@ -54,6 +58,41 @@ class CommitOnDefaultBranch(unittest.TestCase):
         self.assertEqual(run_guard(f'cd {repo} && git commit -m "x"', cwd=make_repo("feature/x")).returncode, 2)
         feature = make_repo("feature/x")
         self.assertEqual(run_guard(f'cd {feature} && git commit -m "x"', cwd=make_repo("main")).returncode, 0)
+
+    def test_follows_cd_with_semicolon(self):
+        repo = make_repo("master")
+        self.assertEqual(run_guard(f'cd {repo}; git commit -m "x"', cwd=make_repo("feature/x")).returncode, 2)
+
+    def test_expands_env_vars_in_cd(self):
+        # Regression: `cd $TMPDIR/repo && git commit` on master slipped through (live test, 0.4.0).
+        repo = Path(make_repo("master"))
+        env = {"GUARD_TEST_BASE": str(repo.parent)}
+        for cd in (f"$GUARD_TEST_BASE/{repo.name}", f"${{GUARD_TEST_BASE}}/{repo.name}"):
+            with self.subTest(cd=cd):
+                r = run_guard(f'cd {cd} && git commit -m "x"', cwd=make_repo("feature/x"), env=env)
+                self.assertEqual(r.returncode, 2)
+                self.assertIn("master", r.stderr)
+
+    def test_expands_env_vars_in_git_dash_c(self):
+        repo = Path(make_repo("master"))
+        env = {"GUARD_TEST_BASE": str(repo.parent)}
+        r = run_guard(f'git -C $GUARD_TEST_BASE/{repo.name} commit -m "x"', cwd=make_repo("feature/x"), env=env)
+        self.assertEqual(r.returncode, 2)
+
+    def test_blocks_commit_when_repo_dir_unresolvable(self):
+        # Fail closed: a commit whose target directory cannot be found is never waved through.
+        for cmd in (
+            'cd $GUARD_TEST_UNSET_VAR/repo && git commit -m "x"',
+            'cd /nonexistent/guard-test && git commit -m "x"',
+            'git -C /nonexistent/guard-test commit -m "x"',
+        ):
+            with self.subTest(cmd=cmd):
+                r = run_guard(cmd, cwd=make_repo("feature/x"))
+                self.assertEqual(r.returncode, 2)
+                self.assertIn("absolute path", r.stderr)
+
+    def test_unresolvable_dir_only_matters_for_commit(self):
+        self.assertEqual(run_guard("cd $GUARD_TEST_UNSET_VAR/repo && git status").returncode, 0)
 
     def test_ignores_non_repo(self):
         self.assertEqual(run_guard('git commit -m "x"', cwd=tempfile.mkdtemp()).returncode, 0)
