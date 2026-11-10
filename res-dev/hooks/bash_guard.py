@@ -8,6 +8,9 @@ Blocks (exit 2, reason on stderr — shown to the model):
   3. AI attribution in commit messages / PR bodies — the user never wants it.
 
 A safety net, not a parser: anything it cannot read is let through (exit 0), never blocked.
+One exception: a `git commit` whose target directory (after `cd` / `git -C`, `~` and `$VAR`
+expanded) does not exist is blocked — otherwise the branch check silently passes. Note the hook's
+environment may differ from the sandboxed shell's (e.g. `$TMPDIR`), so absolute paths are safest.
 """
 import json
 import os
@@ -62,11 +65,16 @@ def file_arg(args: list[str], flags: set[str]) -> str | None:
     return None
 
 
+def resolve(base: str, path: str) -> str:
+    """Join a shell path onto `base` the way the shell would see it: `~` and `$VAR` expanded."""
+    return os.path.join(base, os.path.expandvars(os.path.expanduser(path)))
+
+
 def read_file(path: str | None, cwd: str) -> str:
     if not path or path == "-":
         return ""
     try:
-        with open(os.path.join(cwd, os.path.expanduser(path)), encoding="utf-8") as fh:
+        with open(resolve(cwd, path), encoding="utf-8") as fh:
             return fh.read()
     except OSError:
         return ""
@@ -98,7 +106,7 @@ def check_git(args: list[str], cwd: str) -> None:
         opt = args[i]
         if opt in GIT_OPTS_WITH_VALUE and i + 1 < len(args):
             if opt == "-C":
-                repo_dir = os.path.join(repo_dir, os.path.expanduser(args[i + 1]))
+                repo_dir = resolve(repo_dir, args[i + 1])
             i += 2
         else:
             i += 1
@@ -117,6 +125,11 @@ def check_git(args: list[str], cwd: str) -> None:
             block("Blocked: `git commit -a` stages every tracked change. Stage explicit paths, then commit.")
         check_attribution(" ".join(rest))
         check_attribution(read_file(file_arg(rest, {"-F", "--file"}), cwd))
+        if not os.path.isdir(repo_dir):  # unresolvable target: the branch check below would pass blindly
+            block(
+                f"Blocked: cannot resolve the commit's directory `{repo_dir}` to check its branch. "
+                f"Use an absolute path in `cd` / `git -C`, then retry."
+            )
         branch = current_branch(repo_dir)
         if branch in DEFAULT_BRANCHES:
             block(
@@ -151,7 +164,7 @@ def main() -> None:
         if not tokens:
             continue
         if tokens[0] == "cd" and len(tokens) > 1:  # `cd repo && git commit` — the hook's cwd is pre-cd
-            cwd = os.path.join(cwd, os.path.expanduser(tokens[1]))
+            cwd = resolve(cwd, tokens[1])
         elif tokens[0] == "git":
             check_git(tokens[1:], cwd)
         elif tokens[0] == "gh":
