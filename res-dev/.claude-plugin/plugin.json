@@ -1,6 +1,6 @@
 {
   "name": "res-dev",
   "description": "res's personal development skills: git workflow (branch, commit, PR, PR review for GitHub & Azure DevOps), Jira ticket authoring, and Azure DevOps Boards work-item authoring.",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "author": { "name": "res" }
 }
