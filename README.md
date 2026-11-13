@@ -39,8 +39,9 @@ To add another domain later (e.g. `res-admin`): create a new top-level folder wi
 
 `handover` closes an implementation: tests → `/code-review` at the depth of the risk tier
 (S low · M medium · L high, tiers defined in the global CLAUDE.md) → findings sorted into
-*fix in this branch* / *ticket candidate* / *closed* by the project's ticket threshold → handover
-note. `git-pr` carries tier and auto-review result into the PR body; `git-pr-review` is the extra
+*fix in this branch* / *ticket candidate* / *closed* by the project's ticket threshold → in-branch
+fixes applied right away, one commit each (guardrails send larger or judgement-dependent fixes back
+to the user) → handover note. `git-pr` carries tier and auto-review result into the PR body; `git-pr-review` is the extra
 review for tier L and for other people's PRs.
 
 ## Install
