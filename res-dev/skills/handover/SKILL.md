@@ -1,11 +1,13 @@
 ---
 name: handover
-description: Hand finished implementation work over to the user — run the tests, auto-review the branch at the depth of its risk tier, sort the findings by the project's ticket threshold, and write the handover note. Use when implementation is done, before the user's manual test (tier M/L) or before the PR (tier S).
+description: Hand finished implementation work over to the user — run the tests, auto-review the branch at the depth of its risk tier, sort the findings by the project's ticket threshold, apply the in-branch fixes, and write the handover note. Use when implementation is done, before the user's manual test (tier M/L) or before the PR (tier S).
 argument-hint: "[S|M|L]"
 ---
 
 Close an implementation with a deterministic gate: green tests, an independent review, a handover
-the user can act on. The user triages the findings — this skill sorts and presents, it does not fix.
+the user can act on. Defects in the changed code are fixed right away, one commit each; everything
+that needs a decision (ticket candidates, closed findings, fixes that outgrow the guardrails) stays
+with the user.
 
 ## Steps
 
@@ -27,7 +29,18 @@ the user can act on. The user triages the findings — this skill sorts and pres
    - **Closed** — everything else, one line of rationale each. No "someday" bucket.
    Verify each finding against the code before sorting; a finding that does not hold is Closed with
    "does not hold: <why>".
-6. **Handover note** — terse, in the user's language:
+6. **Apply the in-branch fixes** — each *Fix in this branch* finding, one at a time:
+   - Implement the fix, with a test when the finding is "missing test" or the fix adds logic.
+   - Run the tests of the touched area. Green → commit this fix alone (message names the finding),
+     so the user can revert a single fix with `git revert <sha>`. Work still uncommitted (review ran
+     on the working tree) → leave the fix uncommitted too and list it without a sha.
+   - **Guardrails — do not fix, move the finding to "Needs decision" instead** when the fix
+     - touches a file outside `git diff --stat <base>...HEAD`,
+     - grows beyond ~30 changed lines,
+     - needs a choice between approaches rather than a correction, or
+     - leaves the tests red (undo the attempt first: `git checkout -- <files>`).
+   After the last fix, run the full test command once. Red → stop and report with output.
+7. **Handover note** — terse, in the user's language:
 
 ```
 **Tier:** <S|M|L> — <reason>
@@ -36,14 +49,16 @@ the user can act on. The user triages the findings — this skill sorts and pres
 **Deviations from plan:** <none | list>
 
 **Auto-review (<level>)** — <n> findings
-Fix in this branch:  1. <file:line> — <finding> → <fix>
-Ticket candidates:   2. <file:line> — <finding> (criterion <n>)
-Closed:              3. <one line> · 4. <one line>
+Fixed:               1. <file:line> — <finding> → <fix> (`<sha>`)
+Needs decision:      2. <file:line> — <finding> → <proposed fix> (<guardrail that stopped it>)
+Ticket candidates:   3. <file:line> — <finding> (criterion <n>)
+Closed:              4. <one line> · 5. <one line>
 
 **Please test:** <concrete steps: URL / click path / command, expected result>
 ```
 
-   Number findings globally so the user can answer "1 and 3".
-7. **Stop.** Wait for the user's triage. Apply only the fixes they pick, rerun the tests, then record
-   the PR line: `<level> · <n> findings · <n> fixed · <n> closed (below threshold)` (git-pr uses it).
+   Number findings globally so the user can answer "revert 1, do 2".
+8. **Stop.** Wait for the user. They may revert an applied fix (`git revert <sha>`), pick findings from
+   *Needs decision* (apply, rerun the tests), or reopen a closed one. Then record the PR line:
+   `<level> · <n> findings · <n> fixed · <n> closed (below threshold)` (git-pr uses it).
    No PR and no ticket until the user says so.
